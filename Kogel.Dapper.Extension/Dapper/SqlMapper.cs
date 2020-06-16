@@ -229,6 +229,13 @@ namespace Dapper
 				[typeof(object)] = DbType.Object
 			};
 			ResetTypeHandlers(false);
+
+			//注册Guid解析
+			SqlMapper.RemoveTypeMap(typeof(Guid));
+			SqlMapper.AddTypeHandler(typeof(Guid), new GuidTypeHanlder());
+
+			SqlMapper.RemoveTypeMap(typeof(Guid[]));
+			SqlMapper.AddTypeHandler(typeof(Guid[]), new GuidArrTypeHanlder());
 		}
 
 		/// <summary>
@@ -1127,7 +1134,11 @@ namespace Dapper
 				while (reader.Read())
 				{
 					object val = func(reader);
-					if (val == null || val is T)
+					if (val == null)
+					{
+						yield return default(T);
+					}
+					else if (val is T)
 					{
 						yield return (T)val;
 					}
@@ -1583,7 +1594,7 @@ namespace Dapper
 			switch (otherDeserializers.Length)
 			{
 				case 1:
-					return r => ((Func<TFirst, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TReturn>)map)((TFirst)deserializer(r), (TSecond)otherDeserializers[0](r), default(TThird), default(TFourth), default(TFifth), default(TSixth),default(TSeventh));
+					return r => ((Func<TFirst, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TReturn>)map)((TFirst)deserializer(r), (TSecond)otherDeserializers[0](r), default(TThird), default(TFourth), default(TFifth), default(TSixth), default(TSeventh));
 				case 2:
 					return r => ((Func<TFirst, TSecond, TThird, TFourth, TFifth, TSixth, TSeventh, TReturn>)map)((TFirst)deserializer(r), (TSecond)otherDeserializers[0](r), (TThird)otherDeserializers[1](r), default(TFourth), default(TFifth), default(TSixth), default(TSeventh));
 				case 3:
@@ -3102,23 +3113,26 @@ namespace Dapper
 			}
 			else
 			{
-				if (isTemporary == false)
+				lock (type)
 				{
-					lock (_typeMaps)
+					if (isTemporary == false)
 					{
-						_typeMaps[type] = map;
+						lock (_typeMaps)
+						{
+							_typeMaps[type] = map;
+						}
 					}
-				}
-				else
-				{
-					//临时属性
-					lock (_temporaryTypeMaps)
+					else
 					{
-						_temporaryTypeMaps[type] = map;
+						//临时属性
+						if (_temporaryTypeMaps == null) _temporaryTypeMaps = new Hashtable();
+						lock (_temporaryTypeMaps)
+						{
+							_temporaryTypeMaps[type] = map;
+						}
 					}
 				}
 			}
-
 			PurgeQueryCacheByType(type);
 		}
 

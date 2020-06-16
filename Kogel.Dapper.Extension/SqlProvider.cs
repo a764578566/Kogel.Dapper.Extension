@@ -65,6 +65,9 @@ namespace Kogel.Dapper.Extension
 		public abstract SqlProvider FormatMax(LambdaExpression MaxExpression);
 
 		public abstract SqlProvider FormatUpdateSelect<T>(Expression<Func<T, T>> updator);
+
+		public abstract SqlProvider CreateNew();
+
 		/// <summary>
 		/// 获取表名称
 		/// </summary>
@@ -87,6 +90,8 @@ namespace Kogel.Dapper.Extension
 			//是否存在实体特性中的AsName标记
 			if (isAsName)
 				fromName = entity.AsName.Equals(fromName) ? ProviderOption.CombineFieldName(fromName) : $"{ProviderOption.CombineFieldName(fromName)} {entity.AsName}";
+			else
+				fromName = ProviderOption.CombineFieldName(fromName);
 			SqlString = $" {schema}{fromName} ";
 			if (isNeedFrom)
 				SqlString = " FROM " + SqlString;
@@ -153,14 +158,7 @@ namespace Kogel.Dapper.Extension
 		{
 			return (DataBaseContext<T>)Context;
 		}
-		/// <summary>
-		/// 创建副本
-		/// </summary>
-		/// <returns></returns>
-		public SqlProvider Copy()
-		{
-			return Activator.CreateInstance(this.GetType()) as SqlProvider;
-		}
+	
 		/// <summary>
 		/// 根据主键获取条件
 		/// </summary>

@@ -26,8 +26,8 @@ namespace Kogel.Dapper.Extension
             EntityObject entityObject = new EntityObject(entity);
             if (!EntitieList.Exists(x => x.AssemblyString.Equals(entityObject.AssemblyString)))
             {
-				SqlMapper.SetTypeMap(entityObject.Type, new CustomPropertyTypeMap(entityObject.Type, 
-					(type, column) => 
+				SqlMapper.SetTypeMap(entityObject.Type, new CustomPropertyTypeMap(entityObject.Type,
+					(type, column) =>
 					type.GetPropertys(entityObject.FieldPairs.FirstOrDefault(x => x.Value.Equals(column)).Key)
 					));
 				EntitieList.Add(entityObject);
@@ -68,7 +68,7 @@ namespace Kogel.Dapper.Extension
         /// <returns></returns>
         public static EntityObject QueryEntity(Type entity)
         {
-            var entityType = EntitieList.FirstOrDefault(x => x.Type.FullName.Equals(entity.FullName));
+            var entityType = EntitieList.ToArray().FirstOrDefault(x => x.Type.FullName.Equals(entity.FullName));
             if (entityType != null)
             {
                 return entityType;

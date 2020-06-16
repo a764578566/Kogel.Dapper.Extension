@@ -7,6 +7,7 @@ using System.Linq.Expressions;
 using Kogel.Dapper.Extension.Core.Interfaces;
 using Kogel.Dapper.Extension.Model;
 using Kogel.Dapper.Extension.Extension;
+using Dapper;
 
 namespace Kogel.Dapper.Extension.Core.SetQ
 {
@@ -146,6 +147,8 @@ namespace Kogel.Dapper.Extension.Core.SetQ
 			SqlProvider.FormatCount();
 			var pageTotal = DbCon.QuerySingles<int>(SqlProvider, DbTransaction);
 			//查询数据
+			SqlProvider.Params.Clear();
+			SqlProvider.ProviderOption.MappingList.Clear();
 			SqlProvider.FormatToPageList<T>(pageIndex, pageSize);
 			var itemList = DbCon.Query_1<T>(SqlProvider, DbTransaction);
 			return new PageList<T>(pageIndex, pageSize, pageTotal, itemList);
@@ -158,17 +161,21 @@ namespace Kogel.Dapper.Extension.Core.SetQ
 			var pageTotal = DbCon.QuerySingles<int>(SqlProvider, DbTransaction);
 			SqlProvider.FormatToPageList<T>(pageIndex, pageSize);
 			//查询数据
+			SqlProvider.Params.Clear();
+			SqlProvider.ProviderOption.MappingList.Clear();
 			var itemList = DbCon.Query_1<TSource>(SqlProvider, DbTransaction);
 			return new PageList<TSource>(pageIndex, pageSize, pageTotal, itemList);
 		}
 
 		public PageList<TReturn> PageList<TReturn>(int pageIndex, int pageSize, Expression<Func<T, TReturn>> select)
 		{
+			SqlProvider.Context.Set.SelectExpression = select;
 			//查询总行数
 			SqlProvider.FormatCount();
 			var pageTotal = DbCon.QuerySingles<int>(SqlProvider, DbTransaction);
 			//查询数据
-			SqlProvider.Context.Set.SelectExpression = select;
+			SqlProvider.Params.Clear();
+			SqlProvider.ProviderOption.MappingList.Clear();
 			SqlProvider.FormatToPageList<T>(pageIndex, pageSize);
 			var itemList = DbCon.Query_1<TReturn>(SqlProvider, DbTransaction);
 			return new PageList<TReturn>(pageIndex, pageSize, pageTotal, itemList);
@@ -176,13 +183,16 @@ namespace Kogel.Dapper.Extension.Core.SetQ
 
 		public PageList<TReturn> PageList<TReturn>(int pageIndex, int pageSize, bool where, Expression<Func<T, TReturn>> trueSelect, Expression<Func<T, TReturn>> falseSelect)
 		{
-			//查询总行数
-			SqlProvider.FormatCount();
-			var pageTotal = DbCon.QuerySingles<int>(SqlProvider, DbTransaction);
 			if (where)
 				SqlProvider.Context.Set.SelectExpression = trueSelect;
 			else
 				SqlProvider.Context.Set.SelectExpression = falseSelect;
+			//查询总行数
+			SqlProvider.FormatCount();
+			var pageTotal = DbCon.QuerySingles<int>(SqlProvider, DbTransaction);
+			//查询数据
+			SqlProvider.Params.Clear();
+			SqlProvider.ProviderOption.MappingList.Clear();
 			SqlProvider.FormatToPageList<T>(pageIndex, pageSize);
 			var itemList = DbCon.Query_1<TReturn>(SqlProvider, DbTransaction);
 			return new PageList<TReturn>(pageIndex, pageSize, pageTotal, itemList);

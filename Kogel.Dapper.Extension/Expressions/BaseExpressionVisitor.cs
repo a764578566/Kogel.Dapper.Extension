@@ -52,7 +52,7 @@ namespace Kogel.Dapper.Extension.Expressions
         /// <returns></returns>
         protected override Expression VisitBinary(BinaryExpression node)
         {
-            var binary = new BinaryExpressionVisitor(node, Provider);
+            var binary = new BinaryExpressionVisitor(node, Provider, Index);
             SpliceField.Append(binary.SpliceField);
             this.Param.AddDynamicParams(binary.Param);
             return node;
@@ -215,6 +215,24 @@ namespace Kogel.Dapper.Extension.Expressions
                         SpliceField.Append(")");
                     }
                     break;
+                case "Concact":
+                    {
+                        SpliceField.Append("Concat(");
+                        Visit(node.Arguments[0]);
+                        SpliceField.Append(",");
+                        Visit(node.Arguments[1]);
+                        SpliceField.Append(")");
+                    }
+                    break;
+                case "IfNull":
+                    {
+                        SpliceField.Append($"{providerOption.IfNull()}(");
+                        Visit(node.Arguments[0]);
+                        SpliceField.Append(",");
+                        Visit(node.Arguments[1]);
+                        SpliceField.Append(")");
+                    }
+                    break;
                 #endregion
                 #region 聚合函数
                 case "Count":
@@ -277,14 +295,30 @@ namespace Kogel.Dapper.Extension.Expressions
     /// </summary>
     public class WhereExpressionVisitor : BaseExpressionVisitor
     {
-        private string FieldName { get; set; }//字段
-        private string ParamName { get => ($"{providerOption.ParameterPrefix}{FieldName?.Replace(".", "_")}_{Param.ParameterNames.Count()}"); }//带参数标识的
+        private string FieldName { get; set; } = "";//字段
+        private string ParamName { get => GetParamName(); }//带参数标识的
         internal new StringBuilder SpliceField { get; set; }
         internal new DynamicParameters Param { get; set; }
         public WhereExpressionVisitor(SqlProvider provider) : base(provider)
         {
             this.SpliceField = new StringBuilder();
             this.Param = new DynamicParameters();
+        }
+
+        /// <summary>
+        /// 获取参数名称
+        /// </summary>
+        /// <returns></returns>
+        private string GetParamName()
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(providerOption.ParameterPrefix);
+            if (!string.IsNullOrEmpty(FieldName))
+                //builder.Append(FieldName.Replace(".", "_"));
+                //builder.Append(FieldName.Substring(FieldName.IndexOf(".") + 1));
+                builder.Append("Param");
+            builder.Append($"_{Param.ParameterNames.Count()}{Index}");
+            return builder.ToString();
         }
 
         protected override Expression VisitMethodCall(MethodCallExpression node)
@@ -341,39 +375,56 @@ namespace Kogel.Dapper.Extension.Expressions
             var expTypeName = expType?.FullName ?? "";
             if (expTypeName == "System.Linq.Expressions.TypedParameterExpression" || expTypeName == "System.Linq.Expressions.PropertyExpression")
             {
-                var member = EntityCache.QueryEntity(node.Expression.Type);
-                string asName = string.Empty;
-                if (providerOption.IsAsName)
+                //验证是否是可空对象
+                if (!node.Expression.Type.FullName.Contains("System.Nullable")) //(node.Expression.Type != typeof(Nullable))
                 {
-                    this.FieldName = $"{member.AsName}.{member.FieldPairs[node.Member.Name]}";
-                    asName = member.GetAsName(providerOption);
-                }
-                else
-                    this.FieldName = member.FieldPairs[node.Member.Name];
-                SpliceField.Append($"{asName}{providerOption.CombineFieldName(member.FieldPairs[node.Member.Name])}");
-                //导航属性允许显示字段
-                if (expTypeName == "System.Linq.Expressions.PropertyExpression")
-                {
-                    //导航属性有条件时设置查询该导航属性
-                    var joinTable = Provider.JoinList.Find(x => x.TableType.IsTypeEquals(member.Type));
-                    if (joinTable != null && joinTable.IsMapperField == false)
+                    var member = EntityCache.QueryEntity(node.Expression.Type);
+                    string asName = string.Empty;
+                    if (providerOption.IsAsName)
                     {
-                        joinTable.IsMapperField = true;
+                        this.FieldName = $"{member.AsName}.{member.FieldPairs[node.Member.Name]}";
+                        asName = member.GetAsName(providerOption);
                     }
                     else
+                        this.FieldName = member.FieldPairs[node.Member.Name];
+                    SpliceField.Append($"{asName}{providerOption.CombineFieldName(member.FieldPairs[node.Member.Name])}");
+                    //导航属性允许显示字段
+                    if (expTypeName == "System.Linq.Expressions.PropertyExpression")
                     {
-                        //不存在第一层中，可能在后几层嵌套使用导航属性
-                        //获取调用者表达式
-                        var parentExpression = (node.Expression as MemberExpression).Expression;
-                        var parentEntity = EntityCache.QueryEntity(parentExpression.Type);
-                        joinTable = parentEntity.Navigations.Find(x => x.TableType == member.Type);
-                        if (joinTable != null)
+                        //导航属性有条件时设置查询该导航属性
+                        var joinTable = Provider.JoinList.Find(x => x.TableType.IsTypeEquals(member.Type));
+                        if (joinTable != null && joinTable.IsMapperField == false)
                         {
-                            joinTable = (JoinAssTable)joinTable.Clone();
                             joinTable.IsMapperField = true;
-                            //加入导航连表到提供方
-                            Provider.JoinList.Add(joinTable);
                         }
+                        else
+                        {
+                            //不存在第一层中，可能在后几层嵌套使用导航属性
+                            //获取调用者表达式
+                            var parentExpression = (node.Expression as MemberExpression).Expression;
+                            var parentEntity = EntityCache.QueryEntity(parentExpression.Type);
+                            joinTable = parentEntity.Navigations.Find(x => x.TableType == member.Type);
+                            if (joinTable != null)
+                            {
+                                joinTable = (JoinAssTable)joinTable.Clone();
+                                joinTable.IsMapperField = true;
+                                //加入导航连表到提供方
+                                Provider.JoinList.Add(joinTable);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    //可空函数
+                    Visit(node.Expression);
+                    switch (node.Member.Name)
+                    {
+                        case "HasValue":
+                            {
+                                this.SpliceField.Append(" IS NOT NULL");
+                            }
+                            break;
                     }
                 }
             }
@@ -666,6 +717,24 @@ namespace Kogel.Dapper.Extension.Expressions
                         SpliceField.Append(")");
                     }
                     break;
+                case "Concact":
+                    {
+                        SpliceField.Append("Concat(");
+                        Visit(node.Arguments[0]);
+                        SpliceField.Append(",");
+                        Visit(node.Arguments[1]);
+                        SpliceField.Append(")");
+                    }
+                    break;
+                case "IfNull":
+                    {
+                        SpliceField.Append($"{providerOption.IfNull()}(");
+                        Visit(node.Arguments[0]);
+                        SpliceField.Append(",");
+                        Visit(node.Arguments[1]);
+                        SpliceField.Append(")");
+                    }
+                    break;
                 #endregion
                 #region 聚合函数
                 case "Count":
@@ -709,6 +778,15 @@ namespace Kogel.Dapper.Extension.Expressions
                     }
                     break;
                 #endregion
+                #region lambda函数
+                case "FirstOrDefault":
+                    {
+                        string paramName = ParamName;
+                        this.SpliceField.Append(paramName);
+                        Param.Add(paramName, node.ToConvertAndGetValue());
+                    }
+                    break;
+                #endregion
                 default:
                     {
                         if (node.Object != null)
@@ -725,10 +803,11 @@ namespace Kogel.Dapper.Extension.Expressions
     /// </summary>
     public class BinaryExpressionVisitor : WhereExpressionVisitor
     {
-        public BinaryExpressionVisitor(BinaryExpression expression, SqlProvider provider) : base(provider)
+        public BinaryExpressionVisitor(BinaryExpression expression, SqlProvider provider, int index = 0) : base(provider)
         {
             SpliceField = new StringBuilder();
             Param = new DynamicParameters();
+            base.Index = index;
             SpliceField.Append("(");
             Visit(expression);
             SpliceField.Append(")");

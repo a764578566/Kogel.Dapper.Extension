@@ -55,8 +55,16 @@
   <ItemGroup>
     <Compile Include="Model\ActivitySendPoints.cs" />
     <Compile Include="Model\AdminUser.cs" />
+    <Compile Include="Model\Advert.cs" />
+    <Compile Include="Model\AdvertDto.cs" />
     <Compile Include="Model\Comment.cs" />
+    <Compile Include="Model\Digiwin\RBACEntityBase.cs" />
+    <Compile Include="Model\Digiwin\SYS_ROLE.cs" />
     <Compile Include="Model\GiftDetail.cs" />
+    <Compile Include="Model\Huang\EntityBase.cs" />
+    <Compile Include="Model\Huang\EQP_NATURE_BAS.cs" />
+    <Compile Include="Model\Huang\EQP_STATE_BAS.cs" />
+    <Compile Include="Model\Huang\EquipmentType.cs" />
     <Compile Include="Model\News.cs" />
     <Compile Include="Model\Order.cs" />
     <Compile Include="Model\OrderDetail.cs" />
@@ -64,6 +72,8 @@
     <Compile Include="Model\Product.cs" />
     <Compile Include="Model\PurchaseTransaction.cs" />
     <Compile Include="Model\ResourceMapping.cs" />
+    <Compile Include="Model\Store.cs" />
+    <Compile Include="Model\TB_SYS_USER.cs" />
     <Compile Include="Model\TestDto.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

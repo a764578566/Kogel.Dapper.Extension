@@ -58,15 +58,22 @@ namespace Kogel.Repository
 		{
 			if (UnitOfWork != null)
 				UnitOfWork.Dispose();
+			else
+			{
+				if (Orm != null)
+				{
+					Orm.Dispose();
+				}
+			}
 		}
 
 		/// <summary>
 		/// 获取查询对象
 		/// </summary>
 		/// <returns></returns>
-		public QuerySet<T> QuerySet()
+		public IQuerySet<T> QuerySet()
 		{
-			return new QuerySet<T>(OptionsBuilder.Connection, OptionsBuilder.Provider.Copy(), null);
+			return new QuerySet<T>(OptionsBuilder.Connection, OptionsBuilder.Provider.CreateNew(), null);
 		}
 
 		/// <summary>
@@ -74,18 +81,28 @@ namespace Kogel.Repository
 		/// </summary>
 		/// <param name="transaction"></param>
 		/// <returns></returns>
-		public QuerySet<T> QuerySet(IDbTransaction transaction)
+		public IQuerySet<T> QuerySet(IDbTransaction transaction)
 		{
-			return new QuerySet<T>(OptionsBuilder.Connection, OptionsBuilder.Provider.Copy(), transaction);
+			return new QuerySet<T>(OptionsBuilder.Connection, OptionsBuilder.Provider.CreateNew(), transaction);
+		}
+
+		public IQuerySet<TEntity> QuerySet<TEntity>()
+		{
+			return new QuerySet<TEntity>(OptionsBuilder.Connection, OptionsBuilder.Provider.CreateNew());
+		}
+
+		public IQuerySet<TEntity> QuerySet<TEntity>(IDbTransaction transaction)
+		{
+			return new QuerySet<TEntity>(OptionsBuilder.Connection, OptionsBuilder.Provider.CreateNew(), transaction);
 		}
 
 		/// <summary>
 		/// 获取编辑对象
 		/// </summary>
 		/// <returns></returns>
-		public CommandSet<T> CommandSet()
+		public ICommandSet<T> CommandSet()
 		{
-			return new CommandSet<T>(OptionsBuilder.Connection, OptionsBuilder.Provider.Copy(), null);
+			return new CommandSet<T>(OptionsBuilder.Connection, OptionsBuilder.Provider.CreateNew(), null);
 		}
 
 		/// <summary>
@@ -93,9 +110,14 @@ namespace Kogel.Repository
 		/// </summary>
 		/// <param name="transaction"></param>
 		/// <returns></returns>
-		public CommandSet<T> CommandSet(IDbTransaction transaction)
+		public ICommandSet<T> CommandSet(IDbTransaction transaction)
 		{
-			return new CommandSet<T>(OptionsBuilder.Connection, OptionsBuilder.Provider.Copy(), transaction);
+			return new CommandSet<T>(OptionsBuilder.Connection, OptionsBuilder.Provider.CreateNew(), transaction);
+		}
+
+		public ICommandSet<TEntity> CommandSet<TEntity>(IDbTransaction transaction = null)
+		{
+			return new CommandSet<TEntity>(OptionsBuilder.Connection, OptionsBuilder.Provider.CreateNew(), transaction);
 		}
 
 		/// <summary>
@@ -103,7 +125,7 @@ namespace Kogel.Repository
 		/// </summary>
 		/// <param name="id"></param>
 		/// <returns></returns>
-		public T FindById(int id)
+		public T FindById(object id)
 		{
 			var entityObject = EntityCache.QueryEntity(typeof(T));
 			if (string.IsNullOrEmpty(entityObject.Identitys))
@@ -127,13 +149,14 @@ namespace Kogel.Repository
 			//存在主键写入自增id
 			if (!string.IsNullOrEmpty(entityObject.Identitys))
 			{
-				var id = this.CommandSet()
-				   .InsertIdentity(entity);
-				//写入主键数据
-				entityObject.EntityFieldList
-					.First(x => x.IsIdentity).PropertyInfo
-					.SetValue(entity, id);
-				return 1;
+				//var id = this.CommandSet()
+				//   .InsertIdentity(entity);
+				////写入主键数据
+				//entityObject.EntityFieldList
+				//	.First(x => x.IsIdentity).PropertyInfo
+				//	.SetValue(entity, id);
+				return this.CommandSet()
+				   .Insert(entity);
 			}
 			else
 			{
@@ -148,7 +171,7 @@ namespace Kogel.Repository
 		/// </summary>
 		/// <param name="id"></param>
 		/// <returns></returns>
-		public int Delete(int id)
+		public int Delete(object id)
 		{
 			var entityObject = EntityCache.QueryEntity(typeof(T));
 			if (string.IsNullOrEmpty(entityObject.Identitys))

@@ -229,7 +229,7 @@ namespace Kogel.Dapper.Extension.Core.Interfaces
 		/// <param name="Param"></param>
 		/// <param name="excludeFields"></param>
 		/// <returns></returns>
-		public virtual string ResolveUpdates<T>(T t, DynamicParameters Param, string[] excludeFields)
+		public virtual string ResolveUpdates<T>(T t, DynamicParameters param, string[] excludeFields)
 		{
 			var entity = EntityCache.QueryEntity(t.GetType());
 			var properties = entity.Properties;
@@ -264,8 +264,9 @@ namespace Kogel.Dapper.Extension.Core.Interfaces
 				{
 					builder.Append(",");
 				}
-				builder.Append($"{providerOption.CombineFieldName(name)}={providerOption.ParameterPrefix}Update_{name}");
-				Param.Add($"{providerOption.ParameterPrefix}Update_{name}", value);
+				string paramName = $"{providerOption.ParameterPrefix}Update_{param.ParameterNames.Count()}";
+				builder.Append($"{providerOption.CombineFieldName(name)}={paramName}");
+				param.Add($"{paramName}", value);
 			}
 			builder.Insert(0, " SET ");
 			return builder.ToString();
@@ -317,6 +318,11 @@ namespace Kogel.Dapper.Extension.Core.Interfaces
 							continue;
 						}
 					}
+					//自定义返回
+					if (provider.Context.Set.SelectExpression != null)
+					{
+						continue;
+					}
 					FieldDetailWith(ref sql, item, leftEntity);
 				}
 			}
@@ -360,12 +366,13 @@ namespace Kogel.Dapper.Extension.Core.Interfaces
 					joinAssTable.MapperList.Add(fieldValue, fieldValue);
 				}
 			}
-			var joinEntityType = joinAssTable.IsDto == false ? joinEntity.Type : joinAssTable.DtoType;
-			//重新注册实体映射
-			SqlMapper.SetTypeMap(joinEntityType, new CustomPropertyTypeMap(joinEntityType,
-					(type, column) =>
-					type.GetPropertys(joinAssTable.MapperList.FirstOrDefault(x => x.Value.Equals(column)).Key)
-					), true);
+			//导航属性目前有点问题
+			//var joinEntityType = joinAssTable.IsDto == false ? joinEntity.Type : joinAssTable.DtoType;
+			////重新注册实体映射
+			//SqlMapper.SetTypeMap(joinEntityType, new CustomPropertyTypeMap(joinEntityType,
+			//		(type, column) =>
+			//		type.GetPropertys(joinAssTable.MapperList.FirstOrDefault(x => x.Value.Equals(column)).Key)
+			//		), true);
 			//设置sql字段
 			masterSql += sqlBuilder;
 			return masterSql;
